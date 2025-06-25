@@ -1,17 +1,41 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+  <ion-toolbar color="primary">
     <ion-title>
-      Tab 3
+      Gráfico Histórico
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
+<ion-content [fullscreen]="true" class="ion-padding">
   <ion-header collapse="condense">
     <ion-toolbar>
-      <ion-title size="large">Tab 3</ion-title>
+      <ion-title size="large">Gráfico</ion-title>
     </ion-toolbar>
   </ion-header>
+  
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>{{ chartTitle }}</ion-card-title>
+      <ion-card-subtitle>Variação nos últimos 7 dias</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <!-- Mostra um spinner enquanto os dados do gráfico estão a ser carregados -->
+      <div *ngIf="isLoading" class="ion-text-center ion-padding">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>A carregar dados do gráfico...</p>
+      </div>
 
-  <app-explore-container name="Tab 3 page"></app-explore-container>
+      <!-- ✨ CORREÇÃO: O canvas agora está dentro de um container. -->
+      <!-- O container fica escondido enquanto carrega ou se não houver gráfico. -->
+      <div class="chart-container" [hidden]="isLoading || !chart">
+        <canvas #currencyChart></canvas>
+      </div>
+
+      <!-- Mensagem mostrada se não houver moedas selecionadas ou gráfico -->
+      <div *ngIf="!isLoading && !chart" class="ion-text-center ion-padding">
+          <p>Faça uma conversão na primeira aba para ver o gráfico histórico.</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+  
 </ion-content>

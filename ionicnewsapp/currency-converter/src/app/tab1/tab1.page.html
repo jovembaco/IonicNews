@@ -1,17 +1,82 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+  <ion-toolbar color="primary">
     <ion-title>
-      Tab 1
+      Conversor de Moedas
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
+<ion-content [fullscreen]="true" class="ion-padding">
   <ion-header collapse="condense">
     <ion-toolbar>
-      <ion-title size="large">Tab 1</ion-title>
+      <ion-title size="large">Conversor de Moedas</ion-title>
     </ion-toolbar>
   </ion-header>
 
-  <app-explore-container name="Tab 1 page"></app-explore-container>
+  <div class="content-wrapper">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Conversão em Tempo Real</ion-card-title>
+        <ion-card-subtitle>Insira os valores abaixo</ion-card-subtitle>
+      </ion-card-header>
+
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="floating">Valor a converter</ion-label>
+          <ion-input [(ngModel)]="valor" type="number" placeholder="100"></ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label>De:</ion-label>
+          <ion-select [(ngModel)]="moedaDe" placeholder="Selecione a Moeda">
+            <ion-select-option *ngFor="let moeda of moedas" [value]="moeda.codigo">{{ moeda.nome }} ({{ moeda.codigo }})</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <!-- ✨ NOVO: Botão para inverter as moedas -->
+        <div class="ion-text-center ion-padding-vertical">
+          <ion-button (click)="inverterMoedas()" fill="clear" size="small">
+            <ion-icon slot="icon-only" name="swap-vertical-outline"></ion-icon>
+          </ion-button>
+        </div>
+
+        <ion-item>
+          <ion-label>Para:</ion-label>
+          <ion-select [(ngModel)]="moedaPara" placeholder="Selecione a Moeda">
+             <ion-select-option *ngFor="let moeda of moedas" [value]="moeda.codigo">{{ moeda.nome }} ({{ moeda.codigo }})</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-button (click)="converterMoeda()" expand="block" class="ion-margin-top">
+          Converter
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card *ngIf="resultado" color="secondary">
+       <ion-card-content class="ion-text-center">
+          <h2>Resultado:</h2>
+          <p class="resultado-texto">{{ resultado | currency:moedaPara:'symbol':'1.2-2' }}</p>
+       </ion-card-content>
+    </ion-card>
+    
+    <ion-card *ngIf="resultado" class="gemini-card">
+      <ion-card-content class="ion-text-center">
+          <ion-button (click)="obterDicaDeGasto()" expand="block" fill="outline" [disabled]="isLoading">
+              ✨ O que isso compra?
+          </ion-button>
+
+          <div *ngIf="isLoading" class="ion-padding ion-text-center">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>A Inteligência Artificial está a pensar...</p>
+          </div>
+          
+          <p *ngIf="dicaDeGasto" class="ion-padding gemini-response">
+              {{ dicaDeGasto }}
+          </p>
+      </ion-card-content>
+    </ion-card>
+
+  </div>
+
 </ion-content>
