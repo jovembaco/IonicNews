@@ -5,7 +5,7 @@ import { Injectable } from '@angular/core';
 })
 export class CurrencyApiService {
 
-  // COLE AQUI O SEU FUNCTION URL DA AWS (Mantenha as aspas)
+  //FUNCTION URL DA AWS
   private awsUrl = 'https://tqgnlgxt2op2heu3dklxo62aem0omadr.lambda-url.us-east-2.on.aws/'; 
 
   constructor() { }

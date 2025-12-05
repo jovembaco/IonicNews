@@ -1,7 +1,11 @@
 import { Component, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent, IonSpinner } from '@ionic/angular/standalone';
+import { 
+  IonHeader, IonToolbar, IonTitle, IonContent, IonCard, 
+  IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent, 
+  IonSpinner, ToastController 
+} from '@ionic/angular/standalone';
 import { Chart, registerables } from 'chart.js';
 import { Subscription } from 'rxjs';
 
@@ -13,7 +17,20 @@ import { CurrencyApiService } from '../services/currency-api.service';
   templateUrl: 'tab3.page.html',
   styleUrls: ['tab3.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent, IonSpinner]
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    IonHeader, 
+    IonToolbar, 
+    IonTitle, 
+    IonContent, 
+    IonCard, 
+    IonCardHeader, 
+    IonCardTitle, 
+    IonCardSubtitle, 
+    IonCardContent, 
+    IonSpinner
+  ]
 })
 export class Tab3Page implements OnDestroy {
   @ViewChild('currencyChart') private chartCanvas: ElementRef | undefined;
@@ -26,7 +43,8 @@ export class Tab3Page implements OnDestroy {
 
   constructor(
     private stateService: StateService,
-    private currencyApi: CurrencyApiService
+    private currencyApi: CurrencyApiService,
+    private toastCtrl: ToastController
   ) {
     Chart.register(...registerables);
   }
@@ -34,7 +52,6 @@ export class Tab3Page implements OnDestroy {
   ionViewWillEnter() {
     this.stateSubscription?.unsubscribe(); 
     
-    // ✨ CORREÇÃO: Adicionado o tipo para o parâmetro 'currencies'.
     this.stateSubscription = this.stateService.selectedCurrencies$.subscribe((currencies: { from: string, to: string }) => {
       if (currencies && currencies.from && currencies.to) {
         this.chartTitle = `Variação de ${currencies.from} para ${currencies.to}`;
@@ -58,62 +75,108 @@ export class Tab3Page implements OnDestroy {
     if (this.isLoading) return;
 
     this.isLoading = true;
+    
+    // Limpa o gráfico antigo para evitar sobreposição
     if (this.chart) {
       this.chart.destroy();
       this.chart = undefined; 
     }
     
+    // Valor padrão caso tudo falhe (fallback)
+    let baseRateForSimulation = 1.0;
+    let isDataValid = false;
+
     try {
       const latestData = await this.currencyApi.getLatestRates(from);
-      const latestRate = latestData.conversion_rates[to];
+      console.log('Resposta da API:', latestData); 
 
-      if (!latestRate) {
-        throw new Error('Não foi possível obter a taxa de câmbio base para a simulação.');
+      // --- CENÁRIO 1: SEM CONEXÃO / OFFLINE ---
+      if (latestData && latestData.offline === true) {
+        this.presentToast('Sem conexão. Exibindo gráfico simulado (ilustrativo).');
+      } 
+      // --- CENÁRIO 2: ERRO NA API (DADOS FALTANDO) ---
+      else if (!latestData || !latestData.conversion_rates) {
+        console.warn('API retornou dados inválidos, usando fallback.');
+        this.presentToast('Erro na API. Exibindo gráfico simulado.');
+      } 
+      // --- CENÁRIO 3: SUCESSO ---
+      else {
+        const rate = latestData.conversion_rates[to];
+        if (rate !== undefined && rate !== null) {
+          baseRateForSimulation = rate;
+          isDataValid = true;
+        } else {
+          this.presentToast(`Taxa para ${to} não encontrada. Simulando...`);
+        }
       }
-      
-      const labels: string[] = [];
-      const dataPoints: number[] = [];
-
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        labels.push(`${date.getDate()}/${date.getMonth() + 1}`);
-        
-        const variation = (Math.random() - 0.5) * 0.06;
-        const simulatedRate = latestRate * (1 + variation);
-        dataPoints.push(simulatedRate);
-      }
-      
-      setTimeout(() => this.createChart(labels, dataPoints), 50);
 
     } catch(error) {
-      console.error("[Tab 3] ERRO ao carregar/simular os dados do gráfico:", error);
-    } finally {
-      this.isLoading = false;
+      console.error("[Tab 3] Erro na requisição:", error);
+      this.presentToast('Erro de conexão. Exibindo gráfico simulado.');
     }
+
+    // --- GERAÇÃO DO GRÁFICO (SEMPRE ACONTECE) ---
+    // Se deu erro, usa 1.0. Se deu certo, usa o valor da moeda.
+    
+    const labels: string[] = [];
+    const dataPoints: number[] = [];
+
+    // Gera dados simulados para os últimos 7 dias
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      labels.push(`${date.getDate()}/${date.getMonth() + 1}`);
+      
+      const variation = (Math.random() - 0.5) * 0.06; // Variação de +/- 3%
+      const simulatedRate = baseRateForSimulation * (1 + variation);
+      dataPoints.push(simulatedRate);
+    }
+    
+    this.isLoading = false; // Desliga o spinner
+    
+    // Delay para garantir que o HTML do canvas renderizou
+    setTimeout(() => this.createChart(labels, dataPoints, isDataValid), 50);
   }
 
-  createChart(labels: string[], dataPoints: number[]) {
-    if (!this.chartCanvas) {
-      console.error('[Tab 3] ERRO CRÍTICO: Elemento canvas do gráfico não foi encontrado!');
-      return;
-    }
+  createChart(labels: string[], dataPoints: number[], isRealData: boolean) {
+    if (!this.chartCanvas) return;
 
     const canvas = this.chartCanvas.nativeElement;
+    
+    // Se os dados não forem reais, mudamos a cor para indicar (ex: laranja)
+    // Se forem reais, usamos o azul padrão
+    const graphColor = isRealData ? 'rgb(66, 159, 226)' : 'rgb(255, 159, 64)'; 
+    const bgColor = isRealData ? 'rgba(66, 159, 226, 0.2)' : 'rgba(255, 159, 64, 0.2)';
+
     this.chart = new Chart(canvas, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [{
-          label: 'Taxa de Câmbio (Simulada)',
+          label: isRealData ? 'Taxa de Câmbio (Simulada)' : 'Modo Offline (Simulado)',
           data: dataPoints,
-          borderColor: 'rgb(66, 159, 226)',
-          backgroundColor: 'rgba(66, 159, 226, 0.2)',
+          borderColor: graphColor,
+          backgroundColor: bgColor,
           fill: true,
-          tension: 0.1
+          tension: 0.4
         }]
       },
-      options: { responsive: true, scales: { y: { beginAtZero: false } } }
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: false } } 
+      }
     });
+  }
+
+  async presentToast(message: string) {
+    const toast = await this.toastCtrl.create({
+      message: message,
+      duration: 3000,
+      position: 'bottom',
+      color: 'warning',
+      buttons: [{ text: 'OK', role: 'cancel' }]
+    });
+    await toast.present();
   }
 }
